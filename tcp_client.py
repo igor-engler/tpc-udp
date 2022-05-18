@@ -1,43 +1,48 @@
-import socket
-import tqdm
-import os
+import socket, tqdm, os, sys
+from datetime import datetime
+#import time
 
-SEPARATOR = "</>"
-BUFFER = 4096 # send 4096 bytes each time step
-HOST = "192.168.1.78" # the ip address or hostname of the server, the receiver
+
+HOST = "localhost" # the ip address or hostname of the server, the receiver
 PORT = 5001 
-FILENAME = r"C:\ziptest.zip"
+FILENAME = sys.argv[1] #C:\ziptest.zip
 FILESIZE = os.path.getsize(FILENAME) 
+BUFFER = int(sys.argv[2])
+
+
+def client_tcp():
+    try:
+        blocks = 0
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        client_socket.connect((HOST, PORT))
+  
+        client_socket.send(f"{FILENAME}</>{FILESIZE}".encode())
+        
+        progress_bar = tqdm.tqdm(range(FILESIZE), f"Sending {FILENAME}", unit="B", unit_scale=True, unit_divisor=1024)
+        with open(FILENAME, "rb") as f:
+            while True:
+                data = f.read(BUFFER)
+                if not data:
+                    break
+
+                client_socket.sendall(data) # OR client_socket.send(data)
+
+                progress_bar.update(len(data))
+                blocks = blocks + 1
+    finally:
+        # close the socket
+        client_socket.close()
+        #print(f"BLOCKS GENERATED: {blocks}")
+        return blocks
+        #print(f"{FILESIZE} / {BUFFER} = {int(FILESIZE/BUFFER)+1}")
+        
 
 
 if __name__ == "__main__":
-    # create the client socket
-    s = socket.socket()
-    #s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    print(f"[+] Connecting to {HOST}:{PORT}")
-    #connect() espera um endereço do par(host, port) para se conectar o socket
-    #aquele endereço removo
-    s.connect((HOST, PORT))
-    print("[+] Connected.")
-
-    # send the filename and filesize
-    s.send(f"{FILENAME}{SEPARATOR}{FILESIZE}".encode())
-
-    # start sending the file
-    progress_bar = tqdm.tqdm(range(FILESIZE), f"Sending {FILENAME}", unit="B", unit_scale=True, unit_divisor=BUFFER)
-    with open(FILENAME, "rb") as f:
-        while True:
-            # read the bytes from the file
-            data = f.read(BUFFER)
-            if not data:
-                # file transmitting is done
-                break
-            # we use sendall to assure transimission in 
-            # busy networks
-            s.sendall(data) # OR s.send(data)
-
-            # update the progress bar
-            progress_bar.update(len(data))
-    # close the socket
-    s.close()
+    tstart = datetime.now()
+    print(f"BLOCKS GENERATED: {client_tcp()}")
+    tend = datetime.now()
+    print (f"TIME ELAPSED: {(tend - tstart).total_seconds()*1000}")
+    
+    
